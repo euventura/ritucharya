@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\MainController;
+use App\Http\Controllers\SearchController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -21,3 +22,7 @@ Route::get('/', function () {
 Route::get(
     '/app/{lat?}/{long?}/{cache?}',
     [MainController::class, 'index']);
+
+Route::get(
+        '/search',
+        [SearchController::class, 'index']);
