@@ -4,8 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Weather;
 use Carbon\Carbon;
-use Exception;
-use Illuminate\Support\Facades\Cache;
 
 class MainController extends Controller
 {
@@ -28,18 +26,7 @@ class MainController extends Controller
     public function index($lat = '-2.44',$long = '-54.71', $clear = 0)
     {
 
-        if ($clear == 1) {
-            Cache::forget('test');
-        }
-
-
-        if (!cache::has('test')){
-            $data = Cache::remember('test', 20000,function () use ($lat, $long){
-                return Weather::get($lat, $long);
-            });
-        }
-
-        $data = Cache::get('test');
+        $data = Weather::get($lat, $long);
         $montly = [];
 
         foreach ($data['hourly']['time'] as $datetimeIndex => $dateTime) {
