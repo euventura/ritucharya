@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\HasApiTokens;
 
 class Weather extends Model
@@ -66,10 +67,13 @@ class Weather extends Model
         return $vpk;
     }
 
-    static public function get($lat, $long)
+    static public function get($lat, $long, $label)
     {
-        $response = file_get_contents(self::makeUrl($lat, $long));
-        return json_decode($response, true);
+        return Cache::rememberForever($label, function() use ($lat, $long){
+            $response = file_get_contents(self::makeUrl($lat, $long));
+            return json_decode($response, true);
+        }); 
+        
     }
    
     static protected function makeUrl($lat, $long)

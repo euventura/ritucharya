@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Weather;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class MainController extends Controller
 {
@@ -23,10 +24,11 @@ class MainController extends Controller
         '12' => 'dez'
     ];
 
-    public function index($lat = '-2.44',$long = '-54.71', $clear = 0)
+    public function index($lat = '-2.44',$long = '-54.71', $label = false)
     {
 
-        $data = Weather::get($lat, $long);
+        $data = Weather::get($lat, $long, $label);
+        
         $montly = [];
 
         foreach ($data['hourly']['time'] as $datetimeIndex => $dateTime) {

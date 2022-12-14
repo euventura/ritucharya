@@ -34,7 +34,7 @@
 
         <div>
         @foreach ($geoResult as $result)
-            <p><a href="/app/{{ $result['latitude'] }}/{{ $result['longitude'] }}"> {{ $result['label'] }} </a></p>
+            <p><a href="/app/{{ $result['latitude'] }}/{{ $result['longitude'] }}/{{ $result['label'] }}"> {{ $result['label'] }} </a></p>
         @endforeach
 
         </div>
