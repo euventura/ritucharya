@@ -6,24 +6,29 @@ namespace App\Services;
 class Scale
 {
 
-    private $minimunValue;
-    private $maximunValue;
-    private $method;
+    var $calcMetric = [
+        'temperature_2m' => 'var',
+        'windspeed_10m' => 'sum',
+        'apparent_temperature' => 'var',
+    ];
     
-
-    public function make($dataSet)
+    public function make($dataSet, $metric)
     {
-        if (!$this->minimunValue || !$this->maximunValue) {
-            $this->setDinamicMinMax($dataSet);
-        }
 
-        foreach($dataSet as $ganularData) {
-
+        $dataset =[];
+        $base_metric = $this->calcMetric[$metric] ?? 'avg';
+        for( $x=1;$x<=12;$x++) {
+            $dataset[] =   $dataSet[$base_metric][$x]/max($dataSet[$base_metric]) ;
         }
+        return $dataset;
     }
 
     protected function setDinamicMinMax($dataSet)
     {
+
+        foreach($dataSet as $ganularData) {
+            
+        }
         $this->minimunValue = $dataSet['min'];
         $this->maximunValue = $dataSet['max'] - $dataSet['min'];
     }

@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Weather;
+use App\Services\Granularizer;
+use App\Services\Scale;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 
@@ -28,73 +30,20 @@ class MainController extends Controller
     {
 
         $data = Weather::get($lat, $long, $label);
-        
-        $montly = [];
+        $gran = new Granularizer();
+        $montly = $gran->execute($data['hourly']);
 
-        foreach ($data['hourly']['time'] as $datetimeIndex => $dateTime) {
-            $baseDate = Carbon::parse($dateTime);
-            foreach (array_keys($data['hourly']) as $metric) {
-                if ($metric == 'time') continue;
-                $montly[$metric][$baseDate->month][] = $data['hourly'][$metric][$datetimeIndex];
-            }
-        }
-
-        foreach ($montly as $metric => $dataMetric)
-        {
-            foreach ($dataMetric as $month => $monthData) {
-                $data['montly'][$metric]['sum'][$month] = array_sum($monthData);
-                $data['montly'][$metric]['qtd'][$month] = count($monthData);
-                $data['montly'][$metric]['max'][$month] = max($monthData);
-                $data['montly'][$metric]['min'][$month] = min($monthData);
-                $data['montly'][$metric]['avg'][$month] = $data['montly'][$metric]['sum'][$month]/$data['montly'][$metric]['qtd'][$month];
-                $data['montly'][$metric]['sqr'][$month] = sqrt($data['montly'][$metric]['avg'][$month]);
-                $data['montly'][$metric]['mid'][$month] = $monthData[ round($data['montly'][$metric]['qtd'][$month]/2) ];
-                @$data['montly'][$metric]['var'][$month] = $data['montly'][$metric]['max'][$month] - $data['montly'][$metric]['min'][$month];
-
-                if ($metric == 'temperature_2m') {
-                    $data['montly']['temp_variance']['avg'][$month] = max($monthData) - min($monthData);
-                }
-                
-                if (!isset($data['absolute'] )) $data['absolute'] = [];
-                
-                $premax =  ($data['absolute'][$metric]['max'][$month] ?? 0);
-                $premin =  ($data['absolute'][$metric]['min'][$month] ?? 1000);
-                $data['absolute'][$metric]['max'] =  max($monthData) > $premax ? max($monthData) : $premax;
-                $data['absolute'][$metric]['min'] =  min($monthData) < $premin ? min($monthData) : $premin;
-                $data['absolute'][$metric]['raw'] = $monthData;
-            }
-            
-        }
+        $scale = new Scale();
 
         $datasets = [];
-        $statistics = [];
-        foreach(['apparent_temperature', 'relativehumidity_2m', 'direct_radiation', 'precipitation', 'windspeed_10m', 'temp_variance', 'et0_fao_evapotranspiration'] as $metric)
-        {
-            $dataset = [];
         
-            for( $x=1;$x<=12;$x++)
-            {
-                if ($metric == 'xxxxtemp_variance') {
-                    $dataset[] =   $data['montly']['temperature_2m']['max'][$x] - max($data['montly']['temperature_2m']['min']) ;
-                } else {
-                    $dataset[] =   $data['montly'][$metric]['avg'][$x]/ max($data['montly'][$metric]['avg']) ;
-
-                }
-            }
-            
+        foreach($montly as $metric => $monthData) {
             $datasets[] = [
-                'label' =>$metric,
-                'data' => $dataset
+                'label' => $metric,
+                'title' => $metric,
+                'data' => $scale->make($monthData, $metric)
             ];
         }
-
-        $chartjs2 = app()->chartjs
-        ->name('weatherChart')
-        ->type('radar')
-        ->labels(array_values($this->months))
-        ->datasets($datasets)
-        ->options([]);
-
 
         $vpkData = $this->getVpk($datasets);
         $newDataSet = [];
@@ -112,8 +61,60 @@ class MainController extends Controller
         ->datasets($newDataSet)
         ->options([]);
 
-        return view('index', compact('chartjs', 'chartjs2'));
 
+        $scatter = $this->scatter($montly, ['temperature_2m', 'relativehumidity_2m', 'windspeed_10m']);
+        $newDataSet = [];
+        $chartjs2 = app()->chartjs
+        ->name('weatherChart')
+        ->type('bubble')
+        ->labels(['a', 'b'])
+        ->datasets(array_values($scatter))
+        ->options([
+            'plugins' => [
+                'title' => [
+                    'display' => true,
+                    'text' => 'Analise de dados Climaticos em  em VTP'
+                ],
+                'subtitle' => [
+                    'display' => true,
+                    'text' => '(x = temp, Y = umid, raio=vento)'
+                ]
+            ],
+            'scales' => [
+                'x' => [
+                    'display' => true,
+                    'title' => 'string'
+                ]
+            ]
+        ]);
+
+        $infoData = $this->calcData($montly);
+        $months = $this->months;
+        return view('index', compact('chartjs', 'chartjs2', 'infoData', 'months'));
+
+    }
+
+    public function scatter($dataSet, $metrics)
+    {
+ 
+        $return = [];
+        $controlMetric = array_values(array_values($dataSet)[0])[0];
+
+        $bubbleDataSet = [];
+        foreach($controlMetric as $datasetIndex => $fakeValue) {
+            $return[$datasetIndex]['x'] = round($dataSet[$metrics[0]]['avg'][$datasetIndex], 2);
+            $return[$datasetIndex]['y'] = round($dataSet[$metrics[1]]['avg'][$datasetIndex],2);
+            $return[$datasetIndex]['r'] = round(($dataSet[$metrics[2]]['avg'][$datasetIndex]/max($dataSet[$metrics[2]]['max'])) * 20) ;
+            $bubbleDataSet[] = [
+                'label' => $this->months[$datasetIndex],
+                'title' => $this->months[$datasetIndex],
+                'legend' => $this->months[$datasetIndex],
+                'data' => [array_values($return)[0]]
+            ];
+            $return = [];
+        }
+
+        return $bubbleDataSet;
     }
 
     public function getVpk($rawData)
@@ -135,48 +136,85 @@ class MainController extends Controller
     public function calcDosh($value, $values, $operation)
     {
         switch($operation) {
-            case '--' : 
-                if ($value < 0.5) {
-                    return ((0.5+$value) * 2);
+            case '-' : 
+            case '--' :
+            case '---' :
+            case '----' :    
+                if ($value > 0.50) {
+                    return strlen($operation) * -1;
                 }
-                return  ((0.5-$value) * 2) ;
+                return   strlen($operation) ;
                 break;
-            case '-' :
-                if ($value < 0.5) {
-                    return ((0.5+$value) * 1) ;
+
+            case '+' :
+            case '++' :
+            case '+++' :
+            case '++++' : 
+                if ($value > 0.5) {
+                    return ( strlen($operation));
                 }
-                return  ((0.5-$value) * 1) ;
+                return  (strlen($operation) * -1) ;
                 break;
-            case '+' : 
-                if ($value < 0.5) {
-                    return ((0.5-$value) * 1);
+            case '+-' :
+            case '++--' :
+            case '+++---' :
+                if ($value < 15 || $value > 85)
+                {
+                    return (round(strlen($operation)/2));
                 }
-                return  ((0.5+$value) * 1) ;
-                break;
-            case '++' : 
-                if ($value < 0.5) {
-                    return ((0.5-$value) * 2);
-                }
-                return  ((0.5+$value) * 2) ;
-                break;
+                return 0;
             case '-+' :
-            case '+-' : 
-                if ($value < 25)
+            case '--++' :
+            case '---+++' :
+                if ($value < 15 )
                 {
-                    return ((0.5-$value) * 1);
+                    return (round(strlen($operation)/2)) * -1;
                 }
-                if ($value > 75)
+                if ($value > 85)
                 {
-                    return ((0.5+$value) * 1);
+                    return (round(strlen($operation)/2));
                 }
-                return 0;   
-                break;
+                return 0;
 
             default:
                 return 0;
                 break;
         }
 
+    }
+
+    public function calcData($dataset)
+    {
+        $tempSandhi = $this->calcSandhi($dataset['apparent_temperature'], 'avg', 4);
+        $umidSandhi = $this->calcSandhi($dataset['relativehumidity_2m'], 'avg', 4);
+        $windTop = $this->calcTop($dataset['windspeed_10m'], 'avg', 4);
+        return [
+            'temp_sandhi' => $tempSandhi,
+            'umid_sandhi' => $umidSandhi,
+            'wind_top' => $windTop
+        ];
+    }
+
+    public function calcSandhi($dataset, $metric)
+    {
+        $oldItem = false;
+
+        foreach ($dataset[$metric] as $datasetIndex => $data)
+        {
+            if ($oldItem === false) $oldItem = end($dataset[$metric]); 
+            $diffs[$datasetIndex] =  $data - $oldItem;
+            $oldItem = $data;
+        }
+
+        arsort($diffs, SORT_NUMERIC);
+
+        return array_slice($diffs, 1, 2, true) + array_slice($diffs, -2, 2, true);
+    }
+
+    public function calcTop($dataset, $metric)
+    {
+        arsort($dataset[$metric]);
+        return  array_slice($dataset[$metric], 1, 4, true);
     }
 
 }

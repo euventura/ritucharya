@@ -23,15 +23,46 @@
     </head>
     <body class="antialiased">
         <div class="relative flex items-top justify-center min-h-screen bg-gray-100 dark:bg-gray-900 sm:items-center py-4 sm:pt-0">
-        <div style="width:50%;">
-        teste
-            {!! $chartjs->render() !!}
-        </div>
-        <div style="width:50%;">
-        teste
-            {!! $chartjs2->render() !!}
-        </div>
-        <div id="chart-div"></div>
+            
+
+            <div style="width:50%; padding: 3%; margin: 3%;">
+                {!! $chartjs->render() !!}
+            </div>
+
+            <div style="width:50%; padding: 3%; margin: 3%;">
+
+                {!! $chartjs2->render() !!}
+
+                <div style="width:150px; float: left;">
+                    <h4>Δ temperatura</h4>
+                    <ul  style="list-style: none; padding-left: 2px;">
+                        @foreach ($infoData['temp_sandhi'] as $monthId => $variation)
+                        <?php $oldMonth = $monthId - 1; if ($oldMonth == 0) {$oldMonth=12;}?>
+                            <li>{{  $months[$oldMonth] }} -> {{  $months[$monthId] }} : {{ round($variation, 1) }} </li>
+                        @endforeach
+                    
+                    
+                </div>
+                <div style="width:150px; float: left;">
+                        <h4>Δ Umidade</h4>
+                        <ul style="list-style: none; padding-left: 2px;">
+                            @foreach ($infoData['umid_sandhi'] as $monthId => $variation)
+                            <?php $oldMonth = $monthId - 1; if ($oldMonth == 0) {$oldMonth=12;}?>
+                                <li>{{  $months[$oldMonth] }} -> {{  $months[$monthId] }} : {{ round($variation,2) }} </li>
+                            @endforeach
+                        </ul>
+                </div>
+                <div style="width:150px; float: left;">
+                        <h4> Ventos (kh/h)</h4>
+                        <ul style="list-style: none; padding-left: 2px;">
+                            @foreach ($infoData['wind_top'] as $monthId => $variation)
+                                <li>{{  $months[$monthId] }} : {{ round($variation,2) }} </li>
+                            @endforeach
+                        </ul>
+                </div>
+            </div>
+
+            <div id="chart-div"></div>
         </div>
     </body>
 </html>

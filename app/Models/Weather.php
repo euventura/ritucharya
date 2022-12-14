@@ -27,7 +27,7 @@ class Weather extends Model
         $vpk =[
             'relativehumidity_2m' => [ // quanto mais
                 'V' => '--', // diminui vata
-                'P' => '-+', // em extremos perturba
+                'P' => '-+', 
                 'K' => '++' //agrava kapha
             ],
             'direct_radiation' => [ // quanto mais
@@ -35,31 +35,31 @@ class Weather extends Model
                 'P' => '++', // relacao direta
                 'K' => '-' // relacao direta inversa
             ],
-            'apparent_temperature' => [
+            'apparent_temperature' => [// variacao
+                'V' => '+', 
+                'P' => '=',
+                'K' => '=' 
+            ],
+            'temperature_2m' => [ 
                 'V' => '--', 
-                'P' => '++',
+                'P' => '+++',
                 'K' => '-' 
             ],
             'windspeed_10m' => [
-                'V' => '++',
-                'P' => '+',
-                'K' => '--' 
+                'V' => '+',
+                'P' => '=',
+                'K' => '=' 
             ],
             'et0_fao_evapotranspiration' => [
-                'V' => '--',
+                'V' => '++',
                 'P' => '-+',
-                'K' => '++' 
+                'K' => '--' 
             ],
             'precipitation' => [
-                'V' => '--', // diminui vata
-                'P' => '-', 
-                'K' => '++' //agrava kapha
+                'V' => '--', 
+                'P' => '-+', 
+                'K' => '++'
             ],
-            'temp_variance' => [
-                'V' => '++', // diminui vata
-                'P' => '+', // em extremos perturba
-                'K' => '-+' // inversa leve
-            ]
         ];
 
         if ($metric) return $vpk[$metric];
